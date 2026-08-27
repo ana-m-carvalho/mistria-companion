@@ -731,5 +731,5 @@ function mistria_item_details_register() {
     mmapi_register(mistria_item_details_show_mine_bug_spawns);
 }
 
-mmapi_mod_declare("mistria_item_details", "1.0.34");
+mmapi_mod_declare("mistria_item_details", "1.0.35");
 mistria_item_details_register();

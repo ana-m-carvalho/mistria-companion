@@ -1,47 +1,71 @@
-# Mistria Item Details
+# Mistria Companion
 
-Mistria Item Details adds recipe and gift-preference details to the game's existing item tooltip. Hover an inventory item to see:
+Mistria Companion adds item information and quality-of-life tools to Fields of Mistria while reading directly from the game's current data.
 
-- every cooking or crafting recipe that consumes it;
-- villagers who like it; and
-- villagers who love it.
+## Features
 
-The data is read from Fields of Mistria's live item, recipe, and NPC tables. This follows the categories documented by [the Fields of Mistria Wiki](https://fieldsofmistria.wiki.gg/) while avoiding a copied, version-sensitive wiki database. New items and balance changes made by game updates are therefore reflected automatically.
+- Shows every cooking or crafting recipe that consumes a hovered item.
+- Lists villagers who like or love a hovered item.
+- Copies relevant Fields of Mistria Wiki links for items, villagers, calendar birthdays, quest objectives, Museum wings, and map markers.
+- Shows villager names when hovering known NPC map markers.
+- Displays today's birthdays below the mana meter.
+- Announces legendary fish and very rare bug spawns.
+- Marks active very rare bugs at the nearest map hub.
+- Lists bugs initially spawned on each newly entered mine floor.
+- Pauses and resumes the in-game clock without pausing gameplay.
 
-## Install with MOMI
+The mod uses the live item, recipe, NPC, fish, bug, calendar, and map data shipped with the installed game. It does not bundle game or wiki assets.
+
+## Requirements
 
 - Fields of Mistria for Windows
-- [Mods of Mistria Installer (MOMI)](https://github.com/Garethp/Mods-of-Mistria-Installer) version 0.15.5 or newer
+- [Mods of Mistria Installer (MOMI)](https://github.com/Garethp/Mods-of-Mistria-Installer) 0.15.5 or newer
 
-1. In the Fields of Mistria game folder, open `mods`.
-2. Copy the entire `MistriaItemDetails` folder from this repository into `mods`.
-3. Start MOMI. Check **Mistria Item Details**, then select **Install**.
-4. Start the game and hover an inventory item.
+## Installation
 
-Press **F7** while an item tooltip is visible, a villager is selected in the Relationships menu, a villager birthday is hovered in the calendar, a quest item is hovered in Quest Details, or a Museum wing is hovered to copy the relevant Fields of Mistria Wiki URL. Paste it into a browser with `Ctrl+V`.
+1. Download the release ZIP and extract it.
+2. Copy the `MistriaCompanion` folder into the game's `mods` folder.
+3. Start MOMI, select **Mistria Companion**, and choose **Install**.
+4. Launch Fields of Mistria.
 
-A short **F7: Copy wiki link** hint appears when a new eligible item or NPC is selected.
-Press **F8** to toggle those hints for the current game session. This keybind is intentionally not shown in-game yet.
-
-Hover a known NPC marker on the map to reveal that NPC's name.
-
-On an NPC's birthday, a `Birthday: Name` label appears beneath the mana display. It is hidden on days with no birthdays.
-
-When a legendary fish or very rare bug actually spawns in a map you visit, the mod announces its name and location. Press **F6** to replay those sightings from the current day. Active very rare bugs also appear on the map at their nearest map hub and disappear when the bug is gone.
-
-When entering a mine floor, a brief `Mine bugs:` notification lists every bug initially spawned there. Duplicate bugs are shown with a count.
-
-Press **F5** to pause or resume the in-game clock.
-
-The resulting layout must be:
+The installed layout should be:
 
 ```text
 Fields of Mistria\
   mods\
-    MistriaItemDetails\
+    MistriaCompanion\
       manifest.json
       gml\
-        MistriaItemDetails.gml
+        MistriaCompanion.gml
 ```
 
-Do not copy a DLL or nest the `MistriaItemDetails` folder inside another folder. MOMI only detects a mod when `manifest.json` is directly inside a mod folder.
+Do not copy a DLL or add an extra folder level. MOMI detects the mod only when `manifest.json` is directly inside the mod folder.
+
+If upgrading from Mistria Item Details, remove the old `MistriaItemDetails` folder before installing Mistria Companion. The internal mod ID remains unchanged for compatibility.
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| **F5** | Pause or resume the in-game clock. |
+| **F6** | Replay legendary fish and very rare bug sightings from the current day. |
+| **F7** | Copy the relevant Fields of Mistria Wiki URL while supported content is selected or hovered. |
+| **F8** | Toggle the compact `F7 Wiki` hints for the current session. |
+
+Paste copied wiki links into a browser with `Ctrl+V`.
+
+## Spawn information
+
+Legendary fish and very rare bugs are announced only after they actually spawn in a map you visit. Active very rare bugs are shown at their nearest map hub rather than their exact world position.
+
+On entering a newly generated mine floor, a compact `Mine bugs:` notification lists the bugs initially present. Duplicate species include a count.
+
+## Known limitations
+
+- The game runtime cannot open web links directly, so F7 copies links to the clipboard.
+- Quest Details wiki detection depends on the active objective data exposed by the game and may not recognize every objective layout.
+- Mine bug summaries include only bugs present when the floor finishes loading; bugs revealed later from rocks or other interactions are not included.
+
+## License
+
+Mistria Companion is available under the [MIT License](LICENSE).
