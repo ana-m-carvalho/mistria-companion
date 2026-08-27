@@ -1,0 +1,6 @@
+.vs/
+include/
+packages/
+x64/
+*.user
+MistriaI.*/

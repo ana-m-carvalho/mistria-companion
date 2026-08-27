@@ -1,0 +1,11 @@
+{
+  "name": "Mistria Item Details",
+  "author": "kappilol",
+  "version": "1.0.34",
+  "description": "Shows recipe uses and NPC gift preferences in item tooltips.",
+  "minInstallerVersion": "0.15.5",
+  "manifestVersion": 1,
+  "requires_hooks": [
+    "item.display_description"
+  ]
+}
