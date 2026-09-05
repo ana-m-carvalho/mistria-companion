@@ -869,6 +869,606 @@ function mistria_item_details_add_bug_map_markers() {
     }
 }
 
+function __mistria_item_details_npc_needs_gift(_npc_id) {
+    if (!is_array(NPCS) || _npc_id < 0 || _npc_id >= array_length(NPCS)) return false;
+
+    var _npc = NPCS[_npc_id];
+    if (_npc == undefined) return false;
+    return npc_is_unlocked(_npc_id) && _npc.has_met() && _npc.gift_flag;
+}
+
+function __mistria_item_details_is_loved_gift(_item, _npc_id) {
+    if (_item == undefined || !__mistria_item_details_npc_needs_gift(_npc_id)) {
+        return false;
+    }
+
+    var _npc = NPCS[_npc_id];
+    var _prototype = __mistria_item_details_field(_item, "prototype");
+    if (_prototype == undefined || _prototype.giftable != true) return false;
+    if (_prototype.tags.contains_any_value_from(_npc.prototype.banned_gift_tags)) {
+        return false;
+    }
+
+    switch _item.item_id {
+        case ItemId.VoidNewt: return _npc_id == NpcId.Juniper;
+        case ItemId.VoidCake: return _npc_id == NpcId.Eiland;
+    }
+
+    return _item.infusion == Infusion.Loveable
+        || _npc.prototype.loved_gifts.contains(_item.item_id);
+}
+
+function __mistria_item_details_gift_npcs() {
+    var _result = [];
+    if (!is_array(NPCS)) return _result;
+
+    // Keep birthdays first while preserving the game's stable NPC order.
+    for (var _birthday_pass = 0; _birthday_pass < 2; _birthday_pass++) {
+        for (var _npc_id = 0; _npc_id < array_length(NPCS); _npc_id++) {
+            if (!__mistria_item_details_npc_needs_gift(_npc_id)) continue;
+
+            var _is_birthday = NPCS[_npc_id].is_birthday();
+            if (_is_birthday != (_birthday_pass == 0)) continue;
+            array_push(_result, _npc_id);
+        }
+    }
+    return _result;
+}
+
+function __mistria_item_details_existing_room(_inventory, _item) {
+    var _room = 0;
+    for (var _index = 0; _index < _inventory.size(); _index++) {
+        var _slot = _inventory.slot(_index);
+        if (_slot.count <= 0 || _slot.item == undefined) continue;
+        if (_slot.item.partial_eq(_item)) {
+            _room += _slot.room_for_item(_item);
+        }
+    }
+    return _room;
+}
+
+function __mistria_item_details_gift_units(_inventory, _npc_ids) {
+    var _result = [];
+    var _npc_count = array_length(_npc_ids);
+
+    // Favor gifts that already stack in the backpack, then chest stacks that
+    // can cover the most NPCs. The matching remains maximum-cardinality, while
+    // this order avoids spending a scarce empty slot on a less efficient choice.
+    for (var _existing_pass = 0; _existing_pass < 2; _existing_pass++) {
+        for (var _score = _npc_count; _score > 0; _score--) {
+            for (var _slot_index = 0; _slot_index < _inventory.size(); _slot_index++) {
+                var _slot = _inventory.slot(_slot_index);
+                if (_slot.count <= 0 || _slot.item == undefined) continue;
+
+                var _loved_count = 0;
+                for (var _npc_index = 0; _npc_index < _npc_count; _npc_index++) {
+                    if (__mistria_item_details_is_loved_gift(
+                        _slot.item,
+                        _npc_ids[_npc_index]
+                    )) {
+                        _loved_count++;
+                    }
+                }
+
+                var _unit_count = min(_slot.count, _loved_count);
+                if (_unit_count != _score) continue;
+
+                var _has_existing_room = __mistria_item_details_existing_room(
+                    ARI.inventory,
+                    _slot.item
+                ) > 0;
+                if (_has_existing_room != (_existing_pass == 0)) continue;
+
+                for (var _unit_index = 0; _unit_index < _unit_count; _unit_index++) {
+                    array_push(_result, {
+                        slot_index: _slot_index,
+                        item: _slot.item
+                    });
+                }
+            }
+        }
+    }
+    return _result;
+}
+
+function __mistria_item_details_match_gift(
+    _npc_index,
+    _npc_ids,
+    _units,
+    _unit_owners,
+    _seen_units
+) {
+    var _npc_id = _npc_ids[_npc_index];
+    for (var _unit_index = 0; _unit_index < array_length(_units); _unit_index++) {
+        if (_seen_units[_unit_index]) continue;
+        if (!__mistria_item_details_is_loved_gift(_units[_unit_index].item, _npc_id)) {
+            continue;
+        }
+
+        _seen_units[_unit_index] = true;
+        var _owner = _unit_owners[_unit_index];
+        if (_owner == -1
+            || __mistria_item_details_match_gift(
+                _owner,
+                _npc_ids,
+                _units,
+                _unit_owners,
+                _seen_units
+            ))
+        {
+            _unit_owners[_unit_index] = _npc_index;
+            return true;
+        }
+    }
+    return false;
+}
+
+function __mistria_item_details_gift_groups(_units) {
+    var _groups = [];
+    for (var _unit_index = 0; _unit_index < array_length(_units); _unit_index++) {
+        var _unit = _units[_unit_index];
+        var _group = undefined;
+        for (var _group_index = 0; _group_index < array_length(_groups); _group_index++) {
+            if (_groups[_group_index].item.partial_eq(_unit.item)) {
+                _group = _groups[_group_index];
+                break;
+            }
+        }
+
+        if (_group == undefined) {
+            var _room = ARI.inventory.room_for_item(_unit.item);
+            if (_room <= 0) continue;
+
+            _group = {
+                item: _unit.item,
+                units: [],
+                capacity: 0,
+                used: 0,
+                existing_room: min(
+                    _room,
+                    __mistria_item_details_existing_room(ARI.inventory, _unit.item)
+                )
+            };
+            array_push(_groups, _group);
+        }
+
+        if (_group.capacity < ARI.inventory.room_for_item(_group.item)) {
+            array_push(_group.units, _unit);
+            _group.capacity++;
+        }
+    }
+    return _groups;
+}
+
+function __mistria_item_details_gift_slot_cost(_group, _count) {
+    var _needs_slots = max(0, _count - _group.existing_room);
+    return ceil(_needs_slots / _group.item.prototype.max_stack);
+}
+
+function __mistria_item_details_copy_array(_source) {
+    var _copy = array_create(array_length(_source), -1);
+    for (var _index = 0; _index < array_length(_source); _index++) {
+        _copy[_index] = _source[_index];
+    }
+    return _copy;
+}
+
+function __mistria_item_details_gift_assignment_is_better(_state, _count) {
+    if (_count > _state.best_count) return true;
+    if (_count < _state.best_count) return false;
+
+    // NPCs are birthday-first, then stable game order. At equal coverage,
+    // prefer the assignment that includes the earliest eligible NPC.
+    for (var _index = 0; _index < array_length(_state.assignment); _index++) {
+        var _current_has_gift = _state.assignment[_index] != -1;
+        var _best_has_gift = _state.best_assignment[_index] != -1;
+        if (_current_has_gift != _best_has_gift) return _current_has_gift;
+    }
+    return false;
+}
+
+function __mistria_item_details_gift_priority_upper_can_beat(
+    _state,
+    _npc_index,
+    _count
+) {
+    // Fixed choices form the prefix. Optimistically give every still-needed
+    // gift to the earliest remaining NPC; if even that vector cannot outrank
+    // the best assignment, no equal-count completion of this branch can.
+    var _needed = _state.best_count - _count;
+    for (var _index = 0; _index < array_length(_state.assignment); _index++) {
+        var _optimistic_has_gift;
+        if (_index < _npc_index) {
+            _optimistic_has_gift = _state.assignment[_index] != -1;
+        } else {
+            _optimistic_has_gift = _needed > 0;
+            if (_optimistic_has_gift) _needed--;
+        }
+
+        var _best_has_gift = _state.best_assignment[_index] != -1;
+        if (_optimistic_has_gift != _best_has_gift) {
+            return _optimistic_has_gift;
+        }
+    }
+    return false;
+}
+
+function __mistria_item_details_gift_capacity_upper(
+    _state,
+    _npc_index,
+    _count,
+    _slots_used
+) {
+    var _group_count = array_length(_state.groups);
+    var _extra_slots = array_create(_group_count, 0);
+    var _additional_units = 0;
+
+    // Count capacity already paid for by existing partial stacks or slots that
+    // earlier assignments opened. This deliberately ignores NPC compatibility,
+    // making it an admissible upper bound rather than a second matching pass.
+    for (var _group_index = 0; _group_index < _group_count; _group_index++) {
+        var _group = _state.groups[_group_index];
+        var _paid_slots = __mistria_item_details_gift_slot_cost(
+            _group,
+            _group.used
+        );
+        var _paid_capacity = min(
+            _group.capacity,
+            _group.existing_room
+                + _paid_slots * _group.item.prototype.max_stack
+        );
+        _additional_units += max(0, _paid_capacity - _group.used);
+    }
+
+    // Spend each remaining empty slot where it could add the most units. A
+    // group's marginal capacity never increases, so taking the largest next
+    // marginal produces the optimistic maximum across all groups.
+    var _slots_left = _state.free_slots - _slots_used;
+    for (var _slot = 0; _slot < _slots_left; _slot++) {
+        var _best_group = -1;
+        var _best_gain = 0;
+        for (var _group_index = 0; _group_index < _group_count; _group_index++) {
+            var _group = _state.groups[_group_index];
+            var _paid_slots = __mistria_item_details_gift_slot_cost(
+                _group,
+                _group.used
+            ) + _extra_slots[_group_index];
+            var _before = min(
+                _group.capacity,
+                _group.existing_room
+                    + _paid_slots * _group.item.prototype.max_stack
+            );
+            var _after = min(
+                _group.capacity,
+                _group.existing_room
+                    + (_paid_slots + 1) * _group.item.prototype.max_stack
+            );
+            var _gain = _after - _before;
+            if (_gain > _best_gain) {
+                _best_gain = _gain;
+                _best_group = _group_index;
+            }
+        }
+
+        if (_best_group == -1) break;
+        _extra_slots[_best_group]++;
+        _additional_units += _best_gain;
+    }
+
+    var _npcs_left = array_length(_state.npc_ids) - _npc_index;
+    return _count + min(_npcs_left, _additional_units);
+}
+
+function __mistria_item_details_search_gift_assignment(
+    _state,
+    _npc_index,
+    _count,
+    _slots_used
+) {
+    if (_state.search_nodes >= _state.search_node_limit) return;
+    _state.search_nodes++;
+
+    if (__mistria_item_details_gift_assignment_is_better(_state, _count)) {
+        _state.best_count = _count;
+        _state.best_assignment = __mistria_item_details_copy_array(_state.assignment);
+    }
+    var _capacity_upper = __mistria_item_details_gift_capacity_upper(
+        _state,
+        _npc_index,
+        _count,
+        _slots_used
+    );
+    if (_capacity_upper < _state.best_count
+        || (_capacity_upper == _state.best_count
+            && !__mistria_item_details_gift_priority_upper_can_beat(
+                _state,
+                _npc_index,
+                _count
+            )))
+    {
+        return;
+    }
+    if (_npc_index >= array_length(_state.npc_ids)) return;
+
+    var _candidates = _state.candidates[_npc_index];
+    for (var _index = 0; _index < array_length(_candidates); _index++) {
+        var _group_index = _candidates[_index];
+        var _group = _state.groups[_group_index];
+        if (_group.used >= _group.capacity) continue;
+
+        var _old_cost = __mistria_item_details_gift_slot_cost(_group, _group.used);
+        var _new_cost = __mistria_item_details_gift_slot_cost(_group, _group.used + 1);
+        var _new_slots_used = _slots_used + _new_cost - _old_cost;
+        if (_new_slots_used > _state.free_slots) continue;
+
+        _group.used++;
+        _state.assignment[_npc_index] = _group_index;
+        __mistria_item_details_search_gift_assignment(
+            _state,
+            _npc_index + 1,
+            _count + 1,
+            _new_slots_used
+        );
+        _state.assignment[_npc_index] = -1;
+        _group.used--;
+
+        if (_state.search_nodes >= _state.search_node_limit) return;
+        _capacity_upper = __mistria_item_details_gift_capacity_upper(
+            _state,
+            _npc_index,
+            _count,
+            _slots_used
+        );
+        if (_capacity_upper < _state.best_count
+            || (_capacity_upper == _state.best_count
+                && !__mistria_item_details_gift_priority_upper_can_beat(
+                    _state,
+                    _npc_index,
+                    _count
+                )))
+        {
+            return;
+        }
+    }
+
+    __mistria_item_details_search_gift_assignment(
+        _state,
+        _npc_index + 1,
+        _count,
+        _slots_used
+    );
+}
+
+function __mistria_item_details_gift_plan(_chest_inventory) {
+    var _npc_ids = __mistria_item_details_gift_npcs();
+    var _npc_count = array_length(_npc_ids);
+    var _units = __mistria_item_details_gift_units(_chest_inventory, _npc_ids);
+    var _unit_count = array_length(_units);
+    var _unit_owners = array_create(_unit_count, -1);
+
+    for (var _npc_index = 0; _npc_index < _npc_count; _npc_index++) {
+        __mistria_item_details_match_gift(
+            _npc_index,
+            _npc_ids,
+            _units,
+            _unit_owners,
+            array_create(_unit_count, false)
+        );
+    }
+
+    var _unit_for_npc = array_create(_npc_count, -1);
+    var _matched_count = 0;
+    for (var _unit_index = 0; _unit_index < _unit_count; _unit_index++) {
+        var _owner = _unit_owners[_unit_index];
+        if (_owner == -1) continue;
+        _unit_for_npc[_owner] = _unit_index;
+        _matched_count++;
+    }
+
+    var _groups = __mistria_item_details_gift_groups(_units);
+    var _candidates = array_create(_npc_count, undefined);
+    for (var _npc_index = 0; _npc_index < _npc_count; _npc_index++) {
+        _candidates[_npc_index] = [];
+        for (var _group_index = 0; _group_index < array_length(_groups); _group_index++) {
+            if (__mistria_item_details_is_loved_gift(
+                _groups[_group_index].item,
+                _npc_ids[_npc_index]
+            )) {
+                array_push(_candidates[_npc_index], _group_index);
+            }
+        }
+    }
+
+    var _free_slots = 0;
+    for (var _slot_index = 0; _slot_index < ARI.inventory.size(); _slot_index++) {
+        var _slot = ARI.inventory.slot(_slot_index);
+        if (_slot.count == 0 && _slot.item == undefined) _free_slots++;
+    }
+
+    var _state = {
+        npc_ids: _npc_ids,
+        groups: _groups,
+        candidates: _candidates,
+        free_slots: _free_slots,
+        target_count: _matched_count,
+        assignment: array_create(_npc_count, -1),
+        best_assignment: array_create(_npc_count, -1),
+        best_count: 0,
+        // Exact search is fast for ordinary chest contents, but fixed-charge
+        // backpack slots make adversarial preference sets combinatorial. Keep
+        // the click bounded and retain the best birthday-first plan found.
+        search_nodes: 0,
+        search_node_limit: 2048
+    };
+    __mistria_item_details_search_gift_assignment(_state, 0, 0, 0);
+
+    var _used_by_group = array_create(array_length(_groups), 0);
+    var _plan = [];
+    for (var _npc_index = 0; _npc_index < _npc_count; _npc_index++) {
+        var _group_index = _state.best_assignment[_npc_index];
+        if (_group_index == -1) continue;
+
+        var _group = _groups[_group_index];
+        var _unit = _group.units[_used_by_group[_group_index]];
+        _used_by_group[_group_index]++;
+        array_push(_plan, {
+            npc_id: _npc_ids[_npc_index],
+            slot_index: _unit.slot_index,
+            item: _unit.item
+        });
+    }
+
+    return {
+        eligible_count: _npc_count,
+        matched_count: _matched_count,
+        capacity_count: _state.best_count,
+        entries: _plan
+    };
+}
+
+function mistria_item_details_collect_loved_gifts(_menu) {
+    if (ANCHOR.get_menu(Menu.Storage) != _menu) return;
+
+    var _left_menu = __mistria_item_details_field(_menu, "left_menu");
+    var _right_menu = __mistria_item_details_field(_menu, "right_menu");
+    if (_left_menu == undefined || _right_menu == undefined) return;
+
+    var _hand = __mistria_item_details_field(_left_menu, "hand");
+    if (_hand == undefined || _hand.size() == 0) return;
+    if (_hand.slot(0).item != undefined) {
+        create_notification(
+            ANCHOR.wrap_for_local("Put down the held item before grabbing gifts."),
+            60 * 3
+        );
+        return;
+    }
+
+    var _chest_inventory = __mistria_item_details_field(_menu, "left");
+    if (_chest_inventory == undefined) return;
+
+    var _gift_plan = __mistria_item_details_gift_plan(_chest_inventory);
+    if (_gift_plan.eligible_count == 0) {
+        create_notification(
+            ANCHOR.wrap_for_local("Every met villager has already received a gift today."),
+            60 * 3
+        );
+        return;
+    }
+    if (_gift_plan.matched_count == 0) {
+        create_notification(
+            ANCHOR.wrap_for_local("This chest has no loved gifts for ungifted villagers."),
+            60 * 3
+        );
+        return;
+    }
+
+    var _moved = 0;
+    for (var _index = 0; _index < array_length(_gift_plan.entries); _index++) {
+        var _entry = _gift_plan.entries[_index];
+        var _slot = _chest_inventory.slot(_entry.slot_index);
+        if (_slot.count <= 0 || _slot.item == undefined) continue;
+        if (!_slot.item.partial_eq(_entry.item)) continue;
+        if (!ARI.inventory.can_add(_slot.item, 1)) continue;
+        if (ARI.inventory.add(_slot.item.clone(), 1) != 0) continue;
+
+        _slot.remove(1);
+        _moved++;
+    }
+
+    _left_menu.refresh();
+    _right_menu.refresh();
+
+    if (_moved == 0) {
+        create_notification(
+            ANCHOR.wrap_for_local("No loved gifts fit in your backpack."),
+            60 * 3
+        );
+    } else if (_moved < _gift_plan.matched_count) {
+        create_notification(
+            ANCHOR.wrap_for_local(
+                "Grabbed " + string(_moved) + " of "
+                    + string(_gift_plan.matched_count)
+                    + " loved gifts; your backpack is full."
+            ),
+            60 * 3
+        );
+    } else {
+        create_notification(
+            ANCHOR.wrap_for_local(
+                "Grabbed " + string(_moved) + " loved gift"
+                    + (_moved == 1 ? "" : "s") + "."
+            ),
+            60 * 3
+        );
+    }
+}
+
+function mistria_item_details_chest_gift_button_think(_button, _label) {
+    _label.set_alpha(_button.is_hovered() ? 1 : 0);
+}
+
+function mistria_item_details_add_chest_gift_button() {
+    var _menu = ANCHOR.get_menu(Menu.Storage);
+    if (_menu == undefined) return;
+
+    var _node = __mistria_item_details_field(_menu, "node");
+    var _left = __mistria_item_details_field(_menu, "left");
+    var _right = __mistria_item_details_field(_menu, "right");
+    var _left_box = __mistria_item_details_field(_menu, "left_box");
+    var _left_menu = __mistria_item_details_field(_menu, "left_menu");
+    var _left_banner = __mistria_item_details_field(_menu, "left_banner");
+    if (_node == undefined || _left == undefined || _right != ARI.inventory
+        || _left_box == undefined || _left_menu == undefined || _left_banner == undefined)
+    {
+        return;
+    }
+    if (__mistria_item_details_field(_menu, "recipe") != undefined) return;
+    if (__mistria_item_details_field(_node, "inventory") != _left) return;
+    var _object_id = __mistria_item_details_field(_node, "object_id");
+    if (_object_id == ObjectId.AutoFeeder || _object_id == ObjectId.TurnInBox) return;
+
+    var _prototype = __mistria_item_details_field(_node, "prototype");
+    var _chest = __mistria_item_details_field(_prototype, "interaction_chest");
+    if (_chest == undefined || __mistria_item_details_field(_chest, "shipping_bin") == true) {
+        return;
+    }
+
+    var _canvas = __mistria_item_details_field(_menu, "canvas");
+    if (_canvas == undefined
+        || _canvas.board_get("mistria_item_details_gift_button") != undefined)
+    {
+        return;
+    }
+
+    var _button = ANCHOR.sprite(_left_box)
+        .set_align(Align.RightIn, Align.TopOut)
+        .set_xy(-2, 0)
+        .set_size(22)
+        .set_sprites_from_key("spr_ui_button")
+        .set_tap_sound("SoundEffects/UI/UIExtraPositiveClick")
+        .add_hover_outline()
+        .add_to_pilot(_left_menu.pilot)
+        .set_tap_callback(mistria_item_details_collect_loved_gifts, [_menu]);
+
+    ANCHOR.sprite(_button)
+        .set_sprite(spr_ui_journal_relationship_gift_icon)
+        .set_align(Align.Center, Align.Middle);
+
+    var _label = ANCHOR.text(_button)
+        .set_text("Grab loved gifts")
+        .set_lut(COMMON_LUT)
+        .set_text_align(TextAlign.Center)
+        .set_align(Align.Center, Align.TopOut)
+        .set_y(-2)
+        .set_alpha(0);
+    _label.set_think_callback(
+        mistria_item_details_chest_gift_button_think,
+        [_button, _label]
+    );
+
+    _canvas.board_set("mistria_item_details_gift_button", _button);
+}
+
 function __mistria_item_details_for_item(_item_id) {
     var _item_data = global[$ "__item_data"];
     if (!is_array(_item_data) || _item_id < 0 || _item_id >= array_length(_item_data)) return undefined;
@@ -986,6 +1586,7 @@ function mistria_item_details_register() {
     mmapi_register(mistria_item_details_detect_dig_spots);
     mmapi_register(mistria_item_details_add_dig_spot_map_markers);
     mmapi_register(mistria_item_details_add_bug_map_markers);
+    mmapi_register(mistria_item_details_add_chest_gift_button);
     mmapi_register(mistria_item_details_track_legendary_spawns);
     mmapi_register(mistria_item_details_show_mine_bug_spawns);
 }

@@ -6,6 +6,7 @@ Mistria Companion adds item information and quality-of-life tools to Fields of M
 
 - Shows every cooking or crafting recipe that consumes a hovered item.
 - Lists villagers who like or love a hovered item.
+- Adds a chest button that grabs one loved gift for each met villager who has not received a gift that day, prioritizing birthdays and available backpack space.
 - Copies relevant Fields of Mistria Wiki links for items, villagers, calendar birthdays, quest objectives, Museum wings, and map markers.
 - Shows villager names when hovering known NPC map markers.
 - Displays today's birthdays below the mana meter.
@@ -55,6 +56,12 @@ If upgrading from Mistria Item Details, remove the old `MistriaItemDetails` fold
 | **F9** | Toggle ordinary bug map markers in the current area. |
 
 Paste copied wiki links into a browser with `Ctrl+V`.
+
+When a regular chest is open, use the gift button above its inventory to collect
+one loved gift per eligible villager from that chest. The picker prioritizes
+today's birthdays, accounts for overlapping preferences and duplicate items, and
+makes a capacity-efficient selection for the available backpack space. It does
+not mark a villager as gifted until the gift is actually given.
 
 ## Spawn information
 
