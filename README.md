@@ -54,6 +54,7 @@ If upgrading from Mistria Item Details, remove the old `MistriaItemDetails` fold
 | **F7** | Copy the relevant Fields of Mistria Wiki URL while supported content is selected or hovered. |
 | **F8** | Toggle the compact `F7 Wiki` hints for the current session. |
 | **F9** | Toggle ordinary bug map markers in the current area. |
+| **F10** | Toggle dig-spot notifications for the current session. |
 
 Paste copied wiki links into a browser with `Ctrl+V`.
 
@@ -67,7 +68,7 @@ not mark a villager as gifted until the gift is actually given.
 
 Legendary fish and very rare bugs are announced only after they actually spawn in a map you visit. Active very rare bugs are always shown at their nearest map hub rather than their exact world position. Press **F9** to also show or hide every other active bug in the current area for the rest of the session.
 
-Active dig spots are counted once after each location or mine floor finishes loading. Opening the corresponding map groups the spots at their nearest map hubs; hover a dig marker to see how many active spots are in that general area.
+Active dig spots are counted once after each location or mine floor finishes loading. Press **F10** to disable or re-enable the count notification for the current session. Opening the corresponding map still groups the spots at their nearest map hubs; hover a dig marker to see how many active spots are in that general area.
 
 On entering a newly generated mine floor, a compact `Mine bugs:` notification lists the bugs initially present. Duplicate species include a count.
 

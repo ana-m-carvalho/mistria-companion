@@ -11,6 +11,7 @@ function __mistria_item_details_runtime() {
             legendary_sightings: [],
             mine_bug_floor: "",
             mine_bug_delay: -1,
+            dig_spot_notifications_enabled: true,
             dig_spot_visit_key: "",
             dig_spot_delay: -1,
             dig_spots: []
@@ -257,7 +258,7 @@ function mistria_item_details_detect_dig_spots() {
 
     _runtime.dig_spots = __mistria_item_details_scan_dig_spots();
     var _count = array_length(_runtime.dig_spots);
-    if (_count == 0) return;
+    if (_count == 0 || !_runtime.dig_spot_notifications_enabled) return;
 
     create_notification(
         ANCHOR.wrap_for_local(
@@ -433,6 +434,19 @@ function mistria_item_details_toggle_all_bug_markers() {
             _runtime.all_bug_markers_enabled
                 ? "Ordinary bug map markers enabled."
                 : "Ordinary bug map markers disabled."
+        ),
+        60 * 2
+    );
+}
+
+function mistria_item_details_toggle_dig_spot_notifications() {
+    var _runtime = __mistria_item_details_runtime();
+    _runtime.dig_spot_notifications_enabled = !_runtime.dig_spot_notifications_enabled;
+    create_notification(
+        ANCHOR.wrap_for_local(
+            _runtime.dig_spot_notifications_enabled
+                ? "Dig spot notifications enabled."
+                : "Dig spot notifications disabled."
         ),
         60 * 2
     );
@@ -1576,6 +1590,13 @@ function mistria_item_details_register() {
         mmapi_hotkey_register_binding(
             _bug_markers_binding,
             mistria_item_details_toggle_all_bug_markers
+        );
+    }
+    var _dig_notifications_binding = mmapi_hotkey_binding_from_name("F10");
+    if (_dig_notifications_binding != undefined) {
+        mmapi_hotkey_register_binding(
+            _dig_notifications_binding,
+            mistria_item_details_toggle_dig_spot_notifications
         );
     }
     mmapi_register(mistria_item_details_capture_npc_context);
