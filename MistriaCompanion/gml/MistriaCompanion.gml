@@ -6,6 +6,7 @@ function __mistria_item_details_runtime() {
             wiki_title: "",
             wiki_hint_title: "",
             wiki_hints_enabled: true,
+            all_bug_markers_enabled: false,
             legendary_day: "",
             legendary_sightings: [],
             mine_bug_floor: "",
@@ -316,6 +317,19 @@ function mistria_item_details_toggle_wiki_hints() {
     _runtime.wiki_hints_enabled = !_runtime.wiki_hints_enabled;
 }
 
+function mistria_item_details_toggle_all_bug_markers() {
+    var _runtime = __mistria_item_details_runtime();
+    _runtime.all_bug_markers_enabled = !_runtime.all_bug_markers_enabled;
+    create_notification(
+        ANCHOR.wrap_for_local(
+            _runtime.all_bug_markers_enabled
+                ? "Ordinary bug map markers enabled."
+                : "Ordinary bug map markers disabled."
+        ),
+        60 * 2
+    );
+}
+
 function __mistria_item_details_show_wiki_hint(_toasts_menu) {
     create_notification(ANCHOR.wrap_for_local("F7 Wiki"), 60);
     var _hint = _toasts_menu.toasts.get(_toasts_menu.toasts.count() - 1);
@@ -543,11 +557,14 @@ function mistria_item_details_add_map_labels() {
     }
 }
 
-function mistria_item_details_bug_marker_think(_marker, _bug_id) {
-    _marker.set_enabled(instance_exists(_bug_id));
+function mistria_item_details_bug_marker_think(_marker, _bug_id, _is_very_rare) {
+    _marker.set_enabled(
+        instance_exists(_bug_id)
+            && (_is_very_rare || __mistria_item_details_runtime().all_bug_markers_enabled)
+    );
 }
 
-function mistria_item_details_add_very_rare_bug_map_markers() {
+function mistria_item_details_add_bug_map_markers() {
     var _map_menu = ANCHOR.get_menu(Menu.Map);
     if (_map_menu == undefined || _map_menu.selected_location_id == undefined
         || BUGS == undefined)
@@ -574,7 +591,13 @@ function mistria_item_details_add_very_rare_bug_map_markers() {
         if (_bug.item_id == undefined) continue;
 
         var _bug_data = BUGS.get(_bug.item_id);
-        if (_bug_data == undefined || _bug_data.rarity != "very_rare") continue;
+        if (_bug_data == undefined) continue;
+        var _is_very_rare = _bug_data.rarity == "very_rare";
+        if (!_is_very_rare
+            && !__mistria_item_details_runtime().all_bug_markers_enabled)
+        {
+            continue;
+        }
 
         var _nearest_hub = undefined;
         var _nearest_distance = infinity;
@@ -608,12 +631,12 @@ function mistria_item_details_add_very_rare_bug_map_markers() {
             .set_alpha(0);
         _label.set_think_callback(
             mistria_item_details_map_label_think,
-            [_marker, _label, "Very Rare Bug: "
+            [_marker, _label, (_is_very_rare ? "Very Rare Bug: " : "Bug: ")
                 + __mistria_item_details_name(global.__item_data[_bug.item_id])]
         );
         _marker.set_think_callback(
             mistria_item_details_bug_marker_think,
-            [_marker, _bug.id]
+            [_marker, _bug.id, _is_very_rare]
         );
         _nearest_hub.node.board_set(_marker_key, _marker);
     }
@@ -721,15 +744,22 @@ function mistria_item_details_register() {
     if (_clock_binding != undefined) {
         mmapi_hotkey_register_binding(_clock_binding, mistria_item_details_toggle_clock);
     }
+    var _bug_markers_binding = mmapi_hotkey_binding_from_name("F9");
+    if (_bug_markers_binding != undefined) {
+        mmapi_hotkey_register_binding(
+            _bug_markers_binding,
+            mistria_item_details_toggle_all_bug_markers
+        );
+    }
     mmapi_register(mistria_item_details_capture_npc_context);
     mmapi_register(mistria_item_details_update_birthday_label);
     mmapi_register(mistria_item_details_capture_quest_item_context);
     mmapi_register(mistria_item_details_capture_museum_wing_context);
     mmapi_register(mistria_item_details_add_map_labels);
-    mmapi_register(mistria_item_details_add_very_rare_bug_map_markers);
+    mmapi_register(mistria_item_details_add_bug_map_markers);
     mmapi_register(mistria_item_details_track_legendary_spawns);
     mmapi_register(mistria_item_details_show_mine_bug_spawns);
 }
 
-mmapi_mod_declare("mistria_item_details", "1.0.35");
+mmapi_mod_declare("mistria_item_details", "1.0.36");
 mistria_item_details_register();

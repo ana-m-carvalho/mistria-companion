@@ -10,7 +10,7 @@ Mistria Companion adds item information and quality-of-life tools to Fields of M
 - Shows villager names when hovering known NPC map markers.
 - Displays today's birthdays below the mana meter.
 - Announces legendary fish and very rare bug spawns.
-- Marks active very rare bugs at the nearest map hub.
+- Marks active bugs at the nearest map hub, with ordinary bugs available on demand.
 - Lists bugs initially spawned on each newly entered mine floor.
 - Pauses and resumes the in-game clock without pausing gameplay.
 
@@ -51,12 +51,13 @@ If upgrading from Mistria Item Details, remove the old `MistriaItemDetails` fold
 | **F6** | Replay legendary fish and very rare bug sightings from the current day. |
 | **F7** | Copy the relevant Fields of Mistria Wiki URL while supported content is selected or hovered. |
 | **F8** | Toggle the compact `F7 Wiki` hints for the current session. |
+| **F9** | Toggle ordinary bug map markers in the current area. |
 
 Paste copied wiki links into a browser with `Ctrl+V`.
 
 ## Spawn information
 
-Legendary fish and very rare bugs are announced only after they actually spawn in a map you visit. Active very rare bugs are shown at their nearest map hub rather than their exact world position.
+Legendary fish and very rare bugs are announced only after they actually spawn in a map you visit. Active very rare bugs are always shown at their nearest map hub rather than their exact world position. Press **F9** to also show or hide every other active bug in the current area for the rest of the session.
 
 On entering a newly generated mine floor, a compact `Mine bugs:` notification lists the bugs initially present. Duplicate species include a count.
 
