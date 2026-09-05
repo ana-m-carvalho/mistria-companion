@@ -68,7 +68,7 @@ not mark a villager as gifted until the gift is actually given.
 
 Legendary fish and very rare bugs are announced only after they actually spawn in a map you visit. Active very rare bugs are always shown at their nearest map hub rather than their exact world position. Press **F9** to also show or hide every other active bug in the current area for the rest of the session.
 
-Active dig spots are counted once after each location or mine floor finishes loading. Press **F10** to disable or re-enable the count notification for the current session. Opening the corresponding map groups the spots at their nearest map hubs with an outlined shovel marker and visible count; hover the marker for its full label.
+Active dig spots are counted once after each location or mine floor finishes loading. Press **F10** to disable or re-enable the count notification for the current session. Opening the corresponding map groups the spots at their nearest map hubs with an outlined shovel marker; hover the marker to see how many spots are in that general area.
 
 On entering a newly generated mine floor, a compact `Mine bugs:` notification lists the bugs initially present. Duplicate species include a count.
 

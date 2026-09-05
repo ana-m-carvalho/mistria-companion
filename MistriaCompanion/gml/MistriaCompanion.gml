@@ -688,18 +688,7 @@ function mistria_item_details_bug_marker_think(_marker, _bug_id, _is_very_rare) 
 
 function mistria_item_details_dig_marker_label_think(_marker, _label) {
     var _count = _marker.board_get("mistria_item_details_dig_count");
-    if (_count <= 0) {
-        _label.set_alpha(0);
-        return;
-    }
-
-    _label
-        .set_text(
-            _marker.is_hovered()
-                ? (_count == 1 ? "Dig spot" : "Dig spots: " + string(_count))
-                : "x" + string(_count)
-        )
-        .set_alpha(1);
+    _label.set_alpha(_count > 0 && _marker.is_hovered() ? 1 : 0);
 }
 
 function mistria_item_details_add_dig_spot_map_markers() {
@@ -782,8 +771,7 @@ function mistria_item_details_add_dig_spot_map_markers() {
             _marker = ANCHOR.sprite(_hub.node)
                 .set_sprite(spr_ui_item_tool_rusty_shovel)
                 .set_outline_sprite(spr_ui_item_tool_rusty_shovel_outline)
-                .set_scale(1.5, 1.5)
-                .set_xy(14, -14)
+                .set_xy(10, -10)
                 .set_lut(COMMON_LUT)
                 .listen_for_hovers();
             _label = ANCHOR.text(_marker)
@@ -798,6 +786,7 @@ function mistria_item_details_add_dig_spot_map_markers() {
             _marker.board_set("mistria_item_details_dig_label", _label);
             _hub.node.board_set("mistria_item_details_dig_marker", _marker);
         }
+        _marker.board_set("mistria_item_details_dig_count", _count);
         _marker.board_set("mistria_item_details_dig_count", _count);
         _marker.board_set("mistria_item_details_dig_count", _count);
         _marker.set_enabled(true);
