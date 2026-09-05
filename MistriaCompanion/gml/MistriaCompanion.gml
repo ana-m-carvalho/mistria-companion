@@ -744,17 +744,6 @@ function mistria_item_details_add_dig_spot_map_markers() {
         ds_priority_destroy(_sorting_prio_queue);
     }
 
-    var _dig_sprite = undefined;
-    if (is_array(NODE_PROTOTYPES)
-        && ObjectId.DigSite >= 0
-        && ObjectId.DigSite < array_length(NODE_PROTOTYPES))
-    {
-        _dig_sprite = __mistria_item_details_field(
-            NODE_PROTOTYPES[ObjectId.DigSite],
-            "sprite_id"
-        );
-    }
-
     for (var _hub_index = 0;
         _hub_index < array_length(_location_hubs);
         _hub_index++)
@@ -779,10 +768,9 @@ function mistria_item_details_add_dig_spot_map_markers() {
         }
 
         if (_marker == undefined) {
-            if (_dig_sprite == undefined) continue;
             _marker = ANCHOR.sprite(_hub.node)
-                .set_sprite(_dig_sprite)
-                .set_xy(10, 0)
+                .set_sprite(spr_ui_item_tool_rusty_shovel)
+                .set_xy(12, -12)
                 .set_lut(COMMON_LUT)
                 .listen_for_hovers();
             _label = ANCHOR.text(_marker)
