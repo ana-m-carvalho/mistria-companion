@@ -10,7 +10,10 @@ function __mistria_item_details_runtime() {
             legendary_day: "",
             legendary_sightings: [],
             mine_bug_floor: "",
-            mine_bug_delay: -1
+            mine_bug_delay: -1,
+            dig_spot_visit_key: "",
+            dig_spot_delay: -1,
+            dig_spots: []
         };
     }
     return global.__mistria_item_details;
@@ -158,6 +161,111 @@ function __mistria_item_details_location_name(_location_id) {
             + string_copy(_word, 2, string_length(_word));
     }
     return _result;
+}
+
+function __mistria_item_details_dig_spot_visit_key() {
+    var _key = string(CALENDAR.year()) + ":"
+        + string(CALENDAR.season()) + ":"
+        + string(CALENDAR.day()) + ":"
+        + string(CURRENT_LOCATION_ID) + ":"
+        + string(room()) + ":"
+        + string(__mistria_item_details_field(GRID, "node_counter"));
+    if (DUNGEON_RUNNER != undefined) {
+        var _level = DUNGEON_RUNNER.current_level();
+        _key += ":" + string(DUNGEON_RUNNER.current_floor)
+            + ":" + string(_level.impl);
+    }
+    return _key;
+}
+
+function __mistria_item_details_scan_dig_spots() {
+    var _spots = [];
+    if (GRID == undefined) return _spots;
+
+    var _node_len = __mistria_item_details_field(GRID, "node_len");
+    var _object_ids = __mistria_item_details_field(GRID, "node_object_id");
+    var _top_left_x = __mistria_item_details_field(GRID, "node_top_left_x");
+    var _top_left_y = __mistria_item_details_field(GRID, "node_top_left_y");
+    if (_node_len == undefined
+        || !is_array(_object_ids)
+        || !is_array(_top_left_x)
+        || !is_array(_top_left_y))
+    {
+        return _spots;
+    }
+
+    var _scan_length = min(_node_len, array_length(_object_ids));
+    _scan_length = min(_scan_length, array_length(_top_left_x));
+    _scan_length = min(_scan_length, array_length(_top_left_y));
+    for (var _index = 0; _index < _scan_length; _index++) {
+        if (_object_ids[_index] != ObjectId.DigSite) continue;
+
+        var _x = _top_left_x[_index];
+        var _y = _top_left_y[_index];
+        if (_x == undefined || _y == undefined) continue;
+        var _parent_index = GRID.try_node_index_for_cell(_x, _y);
+        if (_parent_index == undefined || _index != _parent_index) continue;
+
+        array_push(_spots, {
+            grid_x: _x,
+            grid_y: _y,
+            x: (_x * 8) + 8,
+            y: (_y * 8) + 8
+        });
+    }
+    return _spots;
+}
+
+function __mistria_item_details_dig_spot_active(_spot) {
+    if (GRID == undefined) return false;
+    var _index = GRID.try_node_index_for_cell(_spot.grid_x, _spot.grid_y);
+    return _index != undefined && GRID.node_object_id[_index] == ObjectId.DigSite;
+}
+
+function __mistria_item_details_dig_spot_location_name() {
+    var _name = __mistria_item_details_location_name(CURRENT_LOCATION_ID);
+    if (DUNGEON_RUNNER != undefined) {
+        _name += " Floor " + string(DUNGEON_RUNNER.current_floor + 1);
+    }
+    return _name;
+}
+
+function mistria_item_details_detect_dig_spots() {
+    var _runtime = __mistria_item_details_runtime();
+    if (GRID == undefined) {
+        _runtime.dig_spot_visit_key = "";
+        _runtime.dig_spot_delay = -1;
+        _runtime.dig_spots = [];
+        return;
+    }
+
+    var _visit_key = __mistria_item_details_dig_spot_visit_key();
+    if (_runtime.dig_spot_visit_key != _visit_key) {
+        _runtime.dig_spot_visit_key = _visit_key;
+        _runtime.dig_spot_delay = 20;
+        _runtime.dig_spots = [];
+        return;
+    }
+
+    if (__mistria_item_details_field(GRID, "is_setup") == false) return;
+    if (_runtime.dig_spot_delay > 0) {
+        _runtime.dig_spot_delay--;
+        return;
+    }
+    if (_runtime.dig_spot_delay != 0) return;
+    _runtime.dig_spot_delay = -1;
+
+    _runtime.dig_spots = __mistria_item_details_scan_dig_spots();
+    var _count = array_length(_runtime.dig_spots);
+    if (_count == 0) return;
+
+    create_notification(
+        ANCHOR.wrap_for_local(
+            "Dig spots: " + string(_count) + " - "
+                + __mistria_item_details_dig_spot_location_name()
+        ),
+        60 * 3
+    );
 }
 
 function __mistria_item_details_legendary_day_key() {
@@ -564,6 +672,125 @@ function mistria_item_details_bug_marker_think(_marker, _bug_id, _is_very_rare) 
     );
 }
 
+function mistria_item_details_dig_marker_label_think(_marker, _label) {
+    var _count = _marker.board_get("mistria_item_details_dig_count");
+    _label.set_alpha(_count > 0 && _marker.is_hovered() ? 1 : 0);
+}
+
+function mistria_item_details_add_dig_spot_map_markers() {
+    var _map_menu = ANCHOR.get_menu(Menu.Map);
+    if (_map_menu == undefined || _map_menu.selected_location_id == undefined) return;
+
+    var _hubs = global[$ "__map_hubs"];
+    if (!is_array(_hubs) || _map_menu.selected_location_id < 0
+        || _map_menu.selected_location_id >= array_length(_hubs))
+    {
+        return;
+    }
+
+    var _location_hubs = _hubs[_map_menu.selected_location_id];
+    if (!is_array(_location_hubs)) return;
+
+    var _counts = array_create(array_length(_location_hubs), 0);
+    var _runtime = __mistria_item_details_runtime();
+    var _location = __mistria_item_details_field(LOCATIONS[CURRENT_LOCATION_ID], "map_location");
+    if (_location == _map_menu.selected_location_id
+        && _runtime.dig_spot_visit_key == __mistria_item_details_dig_spot_visit_key())
+    {
+        for (var _spot_index = 0;
+            _spot_index < array_length(_runtime.dig_spots);
+            _spot_index++)
+        {
+            var _spot = _runtime.dig_spots[_spot_index];
+            if (!__mistria_item_details_dig_spot_active(_spot)) continue;
+
+            var _nearest_hub_index = -1;
+            var _nearest_distance = infinity;
+            for (var _hub_index = 0;
+                _hub_index < array_length(_location_hubs);
+                _hub_index++)
+            {
+                var _hub = _location_hubs[_hub_index];
+                if (_hub.type != MapHub.Position
+                    || _hub.node == undefined
+                    || _hub.node.freed)
+                {
+                    continue;
+                }
+
+                var _distance = point_distance(_hub.x, _hub.y, _spot.x, _spot.y);
+                if (_distance < _nearest_distance) {
+                    _nearest_distance = _distance;
+                    _nearest_hub_index = _hub_index;
+                }
+            }
+
+            if (_nearest_hub_index != -1) {
+                _counts[_nearest_hub_index]++;
+            }
+        }
+    }
+
+    var _dig_sprite = undefined;
+    if (is_array(NODE_PROTOTYPES)
+        && ObjectId.DigSite >= 0
+        && ObjectId.DigSite < array_length(NODE_PROTOTYPES))
+    {
+        _dig_sprite = __mistria_item_details_field(
+            NODE_PROTOTYPES[ObjectId.DigSite],
+            "sprite_id"
+        );
+    }
+
+    for (var _hub_index = 0;
+        _hub_index < array_length(_location_hubs);
+        _hub_index++)
+    {
+        var _hub = _location_hubs[_hub_index];
+        if (_hub.type != MapHub.Position || _hub.node == undefined || _hub.node.freed) {
+            continue;
+        }
+
+        var _marker = _hub.node.board_get("mistria_item_details_dig_marker");
+        var _label = _marker == undefined
+            ? undefined
+            : _marker.board_get("mistria_item_details_dig_label");
+        var _count = _counts[_hub_index];
+        if (_count == 0) {
+            if (_marker != undefined) {
+                _marker.board_set("mistria_item_details_dig_count", 0);
+                _marker.set_enabled(false);
+            }
+            if (_label != undefined) _label.set_alpha(0);
+            continue;
+        }
+
+        if (_marker == undefined) {
+            if (_dig_sprite == undefined) continue;
+            _marker = ANCHOR.sprite(_hub.node)
+                .set_sprite(_dig_sprite)
+                .set_xy(10, 0)
+                .set_lut(COMMON_LUT)
+                .listen_for_hovers();
+            _label = ANCHOR.text(_marker)
+                .set_lut(COMMON_LUT)
+                .set_align(Align.Center, Align.BottomOut)
+                .set_y(-1)
+                .set_alpha(0);
+            _label.set_think_callback(
+                mistria_item_details_dig_marker_label_think,
+                [_marker, _label]
+            );
+            _marker.board_set("mistria_item_details_dig_label", _label);
+            _hub.node.board_set("mistria_item_details_dig_marker", _marker);
+        }
+
+        _marker.board_set("mistria_item_details_dig_count", _count);
+        _label.set_text(_count == 1 ? "Dig spot" : "Dig spots: " + string(_count));
+        _marker.set_enabled(true);
+    }
+}
+
 function mistria_item_details_add_bug_map_markers() {
     var _map_menu = ANCHOR.get_menu(Menu.Map);
     if (_map_menu == undefined || _map_menu.selected_location_id == undefined
@@ -756,6 +983,8 @@ function mistria_item_details_register() {
     mmapi_register(mistria_item_details_capture_quest_item_context);
     mmapi_register(mistria_item_details_capture_museum_wing_context);
     mmapi_register(mistria_item_details_add_map_labels);
+    mmapi_register(mistria_item_details_detect_dig_spots);
+    mmapi_register(mistria_item_details_add_dig_spot_map_markers);
     mmapi_register(mistria_item_details_add_bug_map_markers);
     mmapi_register(mistria_item_details_track_legendary_spawns);
     mmapi_register(mistria_item_details_show_mine_bug_spawns);

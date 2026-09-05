@@ -11,6 +11,7 @@ Mistria Companion adds item information and quality-of-life tools to Fields of M
 - Displays today's birthdays below the mana meter.
 - Announces legendary fish and very rare bug spawns.
 - Marks active bugs at the nearest map hub, with ordinary bugs available on demand.
+- Announces active dig spots when entering a location or mine floor and marks their general areas at the nearest map hubs.
 - Lists bugs initially spawned on each newly entered mine floor.
 - Pauses and resumes the in-game clock without pausing gameplay.
 
@@ -59,11 +60,14 @@ Paste copied wiki links into a browser with `Ctrl+V`.
 
 Legendary fish and very rare bugs are announced only after they actually spawn in a map you visit. Active very rare bugs are always shown at their nearest map hub rather than their exact world position. Press **F9** to also show or hide every other active bug in the current area for the rest of the session.
 
+Active dig spots are counted once after each location or mine floor finishes loading. Opening the corresponding map groups the spots at their nearest map hubs; hover a dig marker to see how many active spots are in that general area.
+
 On entering a newly generated mine floor, a compact `Mine bugs:` notification lists the bugs initially present. Duplicate species include a count.
 
 ## Known limitations
 
 - The game runtime cannot open web links directly, so F7 copies links to the clipboard.
+- Dig markers show approximate areas and do not reveal exact coordinates or predict what a spot contains.
 - Quest Details wiki detection depends on the active objective data exposed by the game and may not recognize every objective layout.
 - Mine bug summaries include only bugs present when the floor finishes loading; bugs revealed later from rocks or other interactions are not included.
 
