@@ -711,6 +711,7 @@ function mistria_item_details_add_dig_spot_map_markers() {
     if (_location == _map_menu.selected_location_id
         && _runtime.dig_spot_visit_key == __mistria_item_details_dig_spot_visit_key())
     {
+        var _sorting_prio_queue = ds_priority_create();
         for (var _spot_index = 0;
             _spot_index < array_length(_runtime.dig_spots);
             _spot_index++)
@@ -718,31 +719,29 @@ function mistria_item_details_add_dig_spot_map_markers() {
             var _spot = _runtime.dig_spots[_spot_index];
             if (!__mistria_item_details_dig_spot_active(_spot)) continue;
 
-            var _nearest_hub_index = -1;
-            var _nearest_distance = infinity;
+            var _nearest_hub = _map_menu.find_hub_for(
+                _location_hubs,
+                new LocationPosition(
+                    CURRENT_LOCATION_ID,
+                    Vec2(_spot.x, _spot.y),
+                    CURRENT_DYN_INDEX
+                ),
+                _sorting_prio_queue,
+                _map_menu.selected_location_id
+            );
+            if (_nearest_hub == 0) continue;
+
             for (var _hub_index = 0;
                 _hub_index < array_length(_location_hubs);
                 _hub_index++)
             {
-                var _hub = _location_hubs[_hub_index];
-                if (_hub.type != MapHub.Position
-                    || _hub.node == undefined
-                    || _hub.node.freed)
-                {
-                    continue;
+                if (_location_hubs[_hub_index] == _nearest_hub) {
+                    _counts[_hub_index]++;
+                    break;
                 }
-
-                var _distance = point_distance(_hub.x, _hub.y, _spot.x, _spot.y);
-                if (_distance < _nearest_distance) {
-                    _nearest_distance = _distance;
-                    _nearest_hub_index = _hub_index;
-                }
-            }
-
-            if (_nearest_hub_index != -1) {
-                _counts[_nearest_hub_index]++;
             }
         }
+        ds_priority_destroy(_sorting_prio_queue);
     }
 
     var _dig_sprite = undefined;
@@ -761,7 +760,7 @@ function mistria_item_details_add_dig_spot_map_markers() {
         _hub_index++)
     {
         var _hub = _location_hubs[_hub_index];
-        if (_hub.type != MapHub.Position || _hub.node == undefined || _hub.node.freed) {
+        if (_hub.node == undefined || _hub.node.freed) {
             continue;
         }
 
